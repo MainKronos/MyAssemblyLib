@@ -80,3 +80,23 @@ binom_coeff:
 
 binom_coeff_end:
 				RET
+
+
+# MCD -----------------------------------------------------------
+# DESC: Calcola il MCD tra 2 numeri (%AX e %BX)
+# IN: %AX, %BX
+# OUT: %AX
+
+mcd:		
+			PUSH %DX
+	mcd_loop:
+			CMP $0, %BX
+			JE mcd_end
+			XOR %DX, %DX
+			DIV %BX
+			MOV %BX, %AX
+			MOV %DX, %BX
+			JMP mcd_loop
+mcd_end:	
+			POP %DX
+			RET
