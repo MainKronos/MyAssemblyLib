@@ -1,4 +1,4 @@
-# fattoriale -----------------------------------------------------------
+# -----------------------------------------------------------
 # DESC: Calcolo del fattoriale, se %BL < 0 o > 9 ritorna -1, se è ==0 ritorna 1, altrimenti ritorna il fattoriale
 # IN: %BL
 # OUT: %EAX
@@ -34,9 +34,9 @@ fact:
 				MOV $1, %EAX
 				JMP fact_end_loop
 
-fact_end:		RET
+	fact_end:	RET
 
-# coefficiente binomiale -----------------------------------------------------------
+# -----------------------------------------------------------
 # DESC: calcola il coeff binomiale, con A>=B e A<10
 # IN: %BH (A), %BL (B)
 # OUT: %EAX
@@ -78,25 +78,178 @@ binom_coeff:
 				POP %CX
 				POP %BX
 
-binom_coeff_end:
+	binom_coeff_end:
 				RET
 
+# -----------------------------------------------------------
+# DESC: Trova il minimo e il massimo tra 2 numeri
+# IN: %EAX, %EBX
+# OUT: %EAX (min), %EBX (max)
+min_max:			
+				CMP %EAX, %EBX
+				JG min_max_end
+				XCHG %EAX, %EBX
+	min_max_end:	
+				RET
 
-# MCD -----------------------------------------------------------
+# -----------------------------------------------------------
 # DESC: Calcola il MCD tra 2 numeri (%AX e %BX)
 # IN: %AX, %BX
 # OUT: %AX
 
 mcd:		
-			PUSH %DX
+				PUSH %DX
 	mcd_loop:
-			CMP $0, %BX
-			JE mcd_end
-			XOR %DX, %DX
-			DIV %BX
-			MOV %BX, %AX
-			MOV %DX, %BX
-			JMP mcd_loop
-mcd_end:	
-			POP %DX
-			RET
+				CMP $0, %BX
+				JE mcd_end
+				XOR %DX, %DX
+				DIV %BX
+				MOV %BX, %AX
+				MOV %DX, %BX
+				JMP mcd_loop
+	mcd_end:	
+				POP %DX
+				RET
+
+# -----------------------------------------------------------
+# DESC: Conta numero caratteri di una stringa
+# IN: %ESI (puntatore)
+# OUT: %ECX
+strlen:				
+				XOR %ECX, %ECX
+	strlen_l1:	
+				CMPB $0, (%ESI,%ECX,1)				# controllo fine stringa
+				JE strlen_l1e
+				INC %ECX
+				JMP strlen_l1
+	strlen_l1e:		
+				RET
+
+# -----------------------------------------------------------
+# DESC: Ritorna il numero minimo di caratteri di 2 stringhe
+# IN: %ESI, %EDI
+# OUT: %ECX
+strlen_min:		
+				PUSH %EAX
+				PUSH %EBX	
+				CALL strlen # lunghezza prima stringa
+				MOV %ECX, %EAX
+				XCHG %ESI, %EDI
+				CALL strlen # lunghezza seconda stringa
+				MOV %ECX, %EBX
+				XCHG %ESI, %EDI
+				CALL min_max 
+				MOV %EAX, %ECX # lunghezza minore
+				POP %EBX	
+				POP %EAX
+				RET
+
+# -----------------------------------------------------------
+# DESC: copia la stringa sorgente (%ESI) nella stringa destinazione (%EDI)
+# IN: %ESI (sorgente), %EDI (destinazione)
+# OUT: NULL
+strcopy:		
+				PUSH %ECX
+				CALL strlen_min
+				CLD
+				REP MOVSB # copia stringa sorgente nella stringa destinazione
+				POP %ECX
+				RET
+
+# -----------------------------------------------------------
+# DESC: Compara 2 stringhe, ritorna 0 se le stringhe sono uguali, 1 se la prima è successiva alla seconda, -1 altrimenti.
+# IN: %ESI, %EDI
+# OUT: %AL
+strcomp:		
+				PUSH %BX
+				PUSH %ECX
+				PUSH %ESI
+				PUSH %EDI
+				CALL strlen_min
+				INC %ECX	# per confrontare '\0'
+				CLD
+
+	strcomp_l:
+				# %BH = *(%ESI), %BL = *(%EDI)
+				LODSB
+				MOV %AL, %BH
+				XCHG %ESI, %EDI
+
+				LODSB
+				MOV %AL, %BL
+				XCHG %ESI, %EDI
+
+				CMP %BL, %BH
+				JA strcomp_A
+				JB strcomp_B
+
+				LOOP strcomp_l
+
+				XOR %AL, %AL
+				JMP strcomp_end
+	strcomp_A:
+				MOV $1, %AL
+				JMP strcomp_end
+	strcomp_B:
+				MOV $-1, %AL
+				JMP strcomp_end
+	strcomp_end:
+				POP %EDI
+				POP %ESI
+				POP %ECX
+				POP %BX
+				RET
+
+# -----------------------------------------------------------
+# DESC: Trova il primo/ carattere (passato tramite %AL) nella stringa (puntata da %ESI), se viene trovato viene poi puntato da %EDI altrimente %EDI vale zero
+# IN: %ESI, %AL
+# OUT: %EDI
+strrchr: # prima occorenza
+				PUSH %ECX
+				PUSH %ESI
+				STD
+				CALL strlen
+				ADD %ECX, %ESI
+				JMP strchr_s
+strchr:	# ultima occorenza
+				PUSH %ECX
+				PUSH %ESI
+				CLD
+				JMP strchr_s
+	strchr_s:
+				PUSH %AX
+				MOV %AL, %AH
+				CALL strlen
+	strchr_l:	
+				MOV %ESI, %EDI
+				LODSB
+				CMP %AL, %AH
+				JE strchr_end
+				LOOP strchr_l
+				XOR %EDI, %EDI
+	strchr_end:
+				POP %AX
+				POP %ESI
+				POP %ECX
+				RET
+
+# -----------------------------------------------------------
+# DESC: Stampa una stringa di caratteri
+# IN: %ESI (puntatore)
+# OUT: NULL
+print:
+				PUSH %EDX
+				PUSH %ECX
+				PUSH %EBX
+				PUSH %EAX
+				CALL strlen			# conteggio caratteri da stampare
+				MOV %ECX, %EDX
+				MOV $4, %EAX		# procedura sys_write
+				MOV $1, %EBX		# settaggio fd a stdout
+				MOV %ESI, %ECX		# indirizzo del buffer
+				INT $0x80			# syscall
+				POP %EAX
+				POP %EBX
+				POP %ECX
+				POP %EDX
+				RET
