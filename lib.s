@@ -253,3 +253,57 @@ print:
 				POP %ECX
 				POP %EDX
 				RET
+
+# -----------------------------------------------------------
+# DESC: Converte un numero intero in stringa di caratteri, il ritorno è l'array puntato da %EDI
+# IN: %EAX
+# OUT: %EDI
+.DATA
+int2str_msg:	.FILL 10, 4, 0
+int2str_gap:	.BYTE 48
+int2str_tmp:	.LONG 1000000000
+.TEXT
+int2str:
+				PUSH %EBX
+				PUSH %ECX
+				PUSH %EDX
+				LEA int2str_msg, %EDI
+				XOR %ECX, %ECX
+				MOV %EAX, %EBX
+				SHL %EBX
+				JC int2str_n
+				JMP int2str_p
+	int2str_n:
+				MOVB $'-', (%EDI,%ECX,1)
+				INC %ECX
+				NEG %EAX
+	int2str_p:		
+				MOV %EAX, %EBX
+	int2str_l:
+				MOV %EBX, %EAX
+
+				CMP int2str_tmp, %EAX
+				JB int2str_d
+
+				DIVL int2str_tmp
+				# ADD %EDX, %EBX
+				MOV %AL, (%EDI,%ECX,1)
+				MOV int2str_gap, %DL
+				ADD %DL, (%EDI,%ECX,1)
+				INC %ECX
+
+				MULL int2str_tmp
+				SUB %EAX, %EBX
+	int2str_d:
+				MOV int2str_tmp, %EAX
+				MOVL $10, int2str_tmp
+				DIVL int2str_tmp
+				MOV %EAX, int2str_tmp
+				CMP $0, int2str_tmp
+				JNE int2str_l
+
+				POP %EDX
+				POP %ECX
+				POP %EBX
+
+				RET
