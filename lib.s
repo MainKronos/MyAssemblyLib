@@ -255,41 +255,60 @@ print:
 				RET
 
 # -----------------------------------------------------------
-# DESC: Converte un numero intero in stringa di caratteri, il ritorno è l'array puntato da %EDI
+# DESC: Converte un numero intero in stringa di caratteri, il ritorno è l'array puntato da %ESI
 # IN: %EAX
-# OUT: %EDI
+# OUT: %ESI
 .DATA
-int2str_msg:	.FILL 10, 4, 0
+int2str_msg:	.FILL 12, 4, 0
 int2str_gap:	.BYTE 48
 int2str_tmp:	.LONG 1000000000
+int2str_cmp:	.BYTE 0
 .TEXT
 int2str:
+				PUSH %EAX
 				PUSH %EBX
 				PUSH %ECX
 				PUSH %EDX
-				LEA int2str_msg, %EDI
-				XOR %ECX, %ECX
+				PUSH %EDI
+
+				LEA int2str_msg, %ESI
+				
+				# pulizia ram
+				MOV $12, %ECX
+	int2str_lp:
+				MOVB $0, (%ESI,%ECX,1)
+				LOOP int2str_lp
+				MOVL $1000000000, int2str_tmp
+				MOVB $0, int2str_cmp
+				# end pulizia ram
+
+				LEA int2str_msg, %ESI
+				# XOR %ECX, %ECX
 				MOV %EAX, %EBX
 				SHL %EBX
 				JC int2str_n
 				JMP int2str_p
 	int2str_n:
-				MOVB $'-', (%EDI,%ECX,1)
+				MOVB $'-', (%ESI,%ECX,1)
 				INC %ECX
 				NEG %EAX
 	int2str_p:		
 				MOV %EAX, %EBX
-	int2str_l:
+	int2str_s:
 				MOV %EBX, %EAX
-
+				CMP $0, int2str_cmp
+				JNE int2str_lf
+	int2str_li:
 				CMP int2str_tmp, %EAX
 				JB int2str_d
-
+	int2str_lf:
 				DIVL int2str_tmp
+	int2str_lz:
+				MOVB $1, int2str_cmp 
 				# ADD %EDX, %EBX
-				MOV %AL, (%EDI,%ECX,1)
+				MOV %AL, (%ESI,%ECX,1)
 				MOV int2str_gap, %DL
-				ADD %DL, (%EDI,%ECX,1)
+				ADD %DL, (%ESI,%ECX,1)
 				INC %ECX
 
 				MULL int2str_tmp
@@ -300,10 +319,17 @@ int2str:
 				DIVL int2str_tmp
 				MOV %EAX, int2str_tmp
 				CMP $0, int2str_tmp
-				JNE int2str_l
+				JNE int2str_s					
+				CMP $0, int2str_cmp				# per stampare lo zero
+				JE int2str_lz
 
+				# JMP int2str_s
+	int2str_e:
+				POP %EDI
 				POP %EDX
 				POP %ECX
 				POP %EBX
+				POP %EAX
 
 				RET
+				
